@@ -49,6 +49,12 @@ func resourceCitrixAdcSslcertkeyUpdate() *schema.Resource {
 				Computed: true,
 				ForceNew: true,
 			},
+			"linkcertkeyname": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				Computed:    false,
+				Description: "The name of the certificate key linked to this SSL cert key.",
+			},
 			"nodomaincheck": {
 				Type:     schema.TypeBool,
 				Optional: true,
@@ -72,7 +78,7 @@ func resourceCitrixAdcSslcertkeyUpdate() *schema.Resource {
 }
 
 func createSslcertkeyUpdateFunc(d *schema.ResourceData, meta interface{}) error {
-	log.Printf("[DEBUG] netscaler-provider:  In createSslcertkeyUpdateFunc")
+	log.Printf("[DEBUG] netscaler-provider: In createSslcertkeyUpdateFunc")
 	client := meta.(*NetScalerNitroClient).client
 	sslcertkeyName := d.Get("certkey").(string)
 
@@ -87,6 +93,12 @@ func createSslcertkeyUpdateFunc(d *schema.ResourceData, meta interface{}) error 
 		Password:      d.Get("password").(bool),
 	}
 
+	// Check for linkcertkeyname
+	if v, ok := d.GetOk("linkcertkeyname"); ok {
+		sslcertkey.Linkcertkeyname = v.(string)
+	}
+
+	// Perform the update action
 	err := client.ActOnResource(service.Sslcertkey.Type(), &sslcertkey, "update")
 	if err != nil {
 		return err
