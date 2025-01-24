@@ -14,6 +14,7 @@ func resourceCitrixAdcSslcertkeyUpdate() *schema.Resource {
 		SchemaVersion: 1,
 		Create:        createSslcertkeyUpdateFunc,
 		Read:          schema.Noop,
+		Update:        updateSslcertkeyUpdateFunc, // Added Update function
 		Delete:        schema.Noop,
 		Importer: &schema.ResourceImporter{
 			State: schema.ImportStatePassthrough,
@@ -93,7 +94,7 @@ func createSslcertkeyUpdateFunc(d *schema.ResourceData, meta interface{}) error 
 		Password:      d.Get("password").(bool),
 	}
 
-	// Check for linkcertkeyname
+	// Handle linkcertkeyname if provided
 	if v, ok := d.GetOk("linkcertkeyname"); ok {
 		sslcertkey.Linkcertkeyname = v.(string)
 	}
@@ -105,6 +106,29 @@ func createSslcertkeyUpdateFunc(d *schema.ResourceData, meta interface{}) error 
 	}
 
 	d.SetId(sslcertkeyName)
+
+	return nil
+}
+
+func updateSslcertkeyUpdateFunc(d *schema.ResourceData, meta interface{}) error {
+	log.Printf("[DEBUG] netscaler-provider: In updateSslcertkeyUpdateFunc")
+	client := meta.(*NetScalerNitroClient).client
+	sslcertkeyName := d.Get("certkey").(string)
+
+	sslcertkey := ssl.Sslcertkey{
+		Certkey: sslcertkeyName,
+	}
+
+	// Check for changes in `linkcertkeyname`
+	if d.HasChange("linkcertkeyname") {
+		sslcertkey.Linkcertkeyname = d.Get("linkcertkeyname").(string)
+	}
+
+	// Perform the update action
+	err := client.ActOnResource(service.Sslcertkey.Type(), &sslcertkey, "update")
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
