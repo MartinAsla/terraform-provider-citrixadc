@@ -14,7 +14,6 @@ func resourceCitrixAdcSslcertkeyUpdate() *schema.Resource {
 		SchemaVersion: 1,
 		Create:        createSslcertkeyUpdateFunc,
 		Read:          schema.Noop,
-		Update:        updateSslcertkeyUpdateFunc, // Added Update function
 		Delete:        schema.Noop,
 		Importer: &schema.ResourceImporter{
 			State: schema.ImportStatePassthrough,
@@ -50,12 +49,6 @@ func resourceCitrixAdcSslcertkeyUpdate() *schema.Resource {
 				Computed: true,
 				ForceNew: true,
 			},
-			"linkcertkeyname": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				Computed:    false,
-				Description: "The name of the certificate key linked to this SSL cert key.",
-			},
 			"nodomaincheck": {
 				Type:     schema.TypeBool,
 				Optional: true,
@@ -74,15 +67,24 @@ func resourceCitrixAdcSslcertkeyUpdate() *schema.Resource {
 				Computed: true,
 				ForceNew: true,
 			},
+			// New "linkcertkeyname" schema added
+			"linkcertkeyname": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				Computed:    false, // This is not computed as it must be set by the user if needed.
+				ForceNew:    true,  // Forces re-creation of the resource if changed
+				Description: "The name of the certificate key to link with this certificate key.",
+			},
 		},
 	}
 }
 
 func createSslcertkeyUpdateFunc(d *schema.ResourceData, meta interface{}) error {
-	log.Printf("[DEBUG] netscaler-provider: In createSslcertkeyUpdateFunc")
+	log.Printf("[DEBUG] netscaler-provider:  In createSslcertkeyUpdateFunc")
 	client := meta.(*NetScalerNitroClient).client
 	sslcertkeyName := d.Get("certkey").(string)
 
+	// Creating sslcertkey structure
 	sslcertkey := ssl.Sslcertkey{
 		Cert:          d.Get("cert").(string),
 		Certkey:       d.Get("certkey").(string),
@@ -94,41 +96,19 @@ func createSslcertkeyUpdateFunc(d *schema.ResourceData, meta interface{}) error 
 		Password:      d.Get("password").(bool),
 	}
 
-	// Handle linkcertkeyname if provided
+	// Check for linkcertkeyname and add if specified
 	if v, ok := d.GetOk("linkcertkeyname"); ok {
 		sslcertkey.Linkcertkeyname = v.(string)
 	}
 
-	// Perform the update action
+	// Performing the update via Nitro API
 	err := client.ActOnResource(service.Sslcertkey.Type(), &sslcertkey, "update")
 	if err != nil {
 		return err
 	}
 
+	// Set the ID for the resource (same as certkey name)
 	d.SetId(sslcertkeyName)
-
-	return nil
-}
-
-func updateSslcertkeyUpdateFunc(d *schema.ResourceData, meta interface{}) error {
-	log.Printf("[DEBUG] netscaler-provider: In updateSslcertkeyUpdateFunc")
-	client := meta.(*NetScalerNitroClient).client
-	sslcertkeyName := d.Get("certkey").(string)
-
-	sslcertkey := ssl.Sslcertkey{
-		Certkey: sslcertkeyName,
-	}
-
-	// Check for changes in `linkcertkeyname`
-	if d.HasChange("linkcertkeyname") {
-		sslcertkey.Linkcertkeyname = d.Get("linkcertkeyname").(string)
-	}
-
-	// Perform the update action
-	err := client.ActOnResource(service.Sslcertkey.Type(), &sslcertkey, "update")
-	if err != nil {
-		return err
-	}
 
 	return nil
 }
